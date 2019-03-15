@@ -8,6 +8,8 @@ var {
   fillMethods
 } = require("./resources/helper");
 
+Array.prototype.indexOfKey = indexOfKey;
+
 function fillDefaults(obj, defaults) {
   Object.keys(defaults).forEach(key => {
     if (!(key in obj)) {

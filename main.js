@@ -16,7 +16,7 @@ Array.prototype.indexOfKey = indexOfKey;
 class iCloud extends EventEmitter {
   constructor(session = {}, username, password) {
     super();
-    const self = this;
+    let self = this;
     // LoggedIn is false because we can't be sure that the session is valid
     self.loggedIn = false;
     // If the session argument is a string, it will be interpreted as a file path and the file will be read

@@ -1,14 +1,22 @@
-const EventEmitter = require('events');
-const fs = require('fs');
+const EventEmitter = require("events");
+const fs = require("fs");
 
-const { getHostFromWebservice, cookiesToStr, parseCookieStr, fillCookies, newId, indexOfKey, fillMethods, fillDefaults} = require("./resources/helper");
+const {
+  getHostFromWebservice,
+  cookiesToStr,
+  parseCookieStr,
+  fillCookies,
+  newId,
+  indexOfKey,
+  fillMethods
+} = require("./resources/helper");
 
 Array.prototype.indexOfKey = indexOfKey;
 
 class iCloud extends EventEmitter {
   constructor(session = {}, username, password) {
     super();
-    var self = this;
+    const self = this;
     // LoggedIn is false because we can't be sure that the session is valid
     self.loggedIn = false;
     // If the session argument is a string, it will be interpreted as a file path and the file will be read
@@ -23,25 +31,23 @@ class iCloud extends EventEmitter {
           session = JSON.parse(contents);
           // Continue with this session object as base
           sessionInit(session);
-        }
-        else {
+        } else {
           // If it was not possible to read the file, set the session to an empty object to work with it
           session = {};
           // Continue with the empty session
           sessionInit(session);
         }
       });
-    }
-    else {
+    } else {
       // The given session argument is actually an object literal, therefore there is no file to be read. Continue :)
       sessionInit(session);
     }
 
-    var currTopics = self.Setup.getPushTopics(self.apps);
+    const currTopics = self.Setup.getPushTopics(self.apps);
 
     function sessionInit(session) {
       // Session Validation. This adds default properties to the session that doesn't exists
-      session = fillDefaults(session, {
+      session = session.fillDefaults({
         username: username,
         password: password,
         auth: {
@@ -54,38 +60,44 @@ class iCloud extends EventEmitter {
         clientSettings: {
           language: "en-us",
           locale: "en_US",
-          xAppleWidgetKey: '83545bf919730e51dbfba24e7e8a78d2',
+          xAppleWidgetKey: "83545bf919730e51dbfba24e7e8a78d2",
           get ["xAppleIFDClientInfo"]() {
             return {
-              "U": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/603.3.1 (KHTML, like Gecko) Version/10.1.2 Safari/603.3.1",
-              "L": session.clientSettings.locale,
-              "Z": "GMT+02:00",
-              "V": "1.1",
-              "F": ""
+              U:
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/603.3.1 (KHTML, like Gecko) Version/10.1.2 Safari/603.3.1",
+              L: session.clientSettings.locale,
+              Z: "GMT+02:00",
+              V: "1.1",
+              F: ""
             };
           },
           timezone: "US/Pacific",
           clientBuildNumber: "17DProject78",
           clientMasteringNumber: "17D68",
           defaultHeaders: {
-            'Referer': 'https://www.icloud.com/',
-            'Content-Type': 'text/plain',
-            'Origin': 'https://www.icloud.com',
-            'Host': '',
-            'Accept': '*/*',
-            'Connection': 'keep-alive',
+            Referer: "https://www.icloud.com/",
+            "Content-Type": "text/plain",
+            Origin: "https://www.icloud.com",
+            Host: "",
+            Accept: "*/*",
+            Connection: "keep-alive",
             get ["Accept-Language"]() {
               return session.clientSettings.language;
             },
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/604.1.25 (KHTML, like Gecko) Version/11.0 Safari/604.1.25',
-            'Cookie': '',
-            'X-Requested-With': "XMLHttpRequest"
+            "User-Agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/604.1.25 (KHTML, like Gecko) Version/11.0 Safari/604.1.25",
+            Cookie: "",
+            "X-Requested-With": "XMLHttpRequest"
           }
         },
         clientId: self.Setup.getClientId(),
         apps: self.apps,
         push: {
-          topics: currTopics ? currTopics.filter((topic, index) => currTopics.indexOf(topic) == index) : [],
+          topics: currTopics
+            ? currTopics.filter(
+                (topic, index) => currTopics.indexOf(topic) == index
+              )
+            : [],
           token: null,
           ttl: 43200,
           courierUrl: "",
@@ -96,33 +108,46 @@ class iCloud extends EventEmitter {
       });
 
       // Session object is validated. Now, the (self) instance will be extended with session's properties using the fill defaults function.
-      self = fillDefaults(self, session);
+      self = self.fillDefaults(session);
 
       Object.keys(self.apps).forEach(function(appPropName) {
         if ("instanceName" in self.apps[appPropName]) {
-          var service = require("./" + self.apps[appPropName].modulePath);
-          self[self.apps[appPropName].instanceName] = fillMethods({}, service, self);
+          const service = require("./" + self.apps[appPropName].modulePath);
+          self[self.apps[appPropName].instanceName] = fillMethods(
+            {},
+            service,
+            self
+          );
         }
       });
 
-
-
       // Now, validate the session with checking for important aspects that show that the session can be used to get data (e.g. there need to be a token, some cookies and account info)
       self.loggedIn = (function() {
-        //console.log(self.auth.cookies.length > 0, !!self.auth.token, self.account != {}, self.username === username);
-        return (self.auth.cookies.length > 0 && self.auth.token && self.account != {} && self.username === username);
+        const accountIsNotEmpty =
+          JSON.stringify(self.account) !== JSON.stringify({});
+        const usernameMatches = username ? self.username === username : true;
+
+        return (
+          self.auth.cookies.length > 0 &&
+          self.auth.token &&
+          accountIsNotEmpty &&
+          usernameMatches
+        );
       })();
 
       self.cookiesValid = (function() {
         const timestamp = new Date().getTime();
         // Get list of cookies, represented to a boolean value wether the cookie is expired or no
-        const cookiesExpired = self.auth.cookies.map(cookie => new Date(cookie.Expires).getTime() - timestamp < 0);
+        const cookiesExpired = self.auth.cookies.map(cookie => {
+          if (cookie["X-APPLE-WEBAUTH-HSA-LOGIN"] === "") {
+            return false;
+          }
+          return new Date(cookie.Expires).getTime() - timestamp < 0;
+        });
         // If no cookie is expired, the array contains just 'false' keys
         // Return wether there is no expired cookie (true)
         return cookiesExpired.indexOf(true) === -1;
       })();
-
-
 
       // If the session is valid, the client is ready! Emit the 'ready' event of the (self) instance
       if (self.loggedIn && self.cookiesValid) {
@@ -164,7 +189,7 @@ class iCloud extends EventEmitter {
     }
   }
   set securityCode(code) {
-    var self = this;
+    const self = this;
 
     self.Setup.enterSecurityCode(self, code, function(result) {
       if (!result) {
@@ -184,21 +209,33 @@ class iCloud extends EventEmitter {
   async sendSecurityCode(mode) {
     if (mode === "sms") {
       const { response, body } = await this.Setup.__securityPhone(this, "sms");
-    }
-    else if (mode === "voice") {
-      const { response, body } = await this.Setup.__securityPhone(this, "voice");
-    }
-    else {
-      const { response, body } = await this.Setup.__securityCode(this, null, "PUT");
+    } else if (mode === "voice") {
+      const { response, body } = await this.Setup.__securityPhone(
+        this,
+        "voice"
+      );
+    } else {
+      const { response, body } = await this.Setup.__securityCode(
+        this,
+        null,
+        "PUT"
+      );
     }
   }
   get twoFactorAuthenticationIsRequired() {
-    return this.twoFactorAuthentication && !this.auth.xAppleTwosvTrustToken && !this.securityCode;
+    return (
+      this.twoFactorAuthentication &&
+      !this.auth.xAppleTwosvTrustToken &&
+      !this.securityCode
+    );
   }
   // Login method
   login(account, password, callback) {
-    var self = this;
-    self.Setup.getAuthToken(account, password, self, function(err, authentification) {
+    const self = this;
+    self.Setup.getAuthToken(account, password, self, function(
+      err,
+      authentification
+    ) {
       if (err) return callback(err);
       // Got token
       self.auth.token = authentification.token;
@@ -226,10 +263,10 @@ class iCloud extends EventEmitter {
         self.account = result;
 
         // Parse cookies to objects
-        var cookies = parseCookieStr(response.headers["set-cookie"]);
+        const cookies = parseCookieStr(response.headers["set-cookie"]);
         self.auth.cookies = fillCookies(self.auth.cookies, cookies);
         // Parse cookie objects to a cookie string array and join it to a single string
-        var cookiesStr = cookiesToStr(self.auth.cookies);
+        const cookiesStr = cookiesToStr(self.auth.cookies);
 
         // Fire progress event
         self.emit("progress", {
@@ -239,7 +276,12 @@ class iCloud extends EventEmitter {
         });
         self.loggedIn = true;
 
-        self.Setup.getPushToken(self, cookiesStr, function(err, token, url, cookies) {
+        self.Setup.getPushToken(self, cookiesStr, function(
+          err,
+          token,
+          url,
+          cookies
+        ) {
           if (err) return callback(err);
           // Got push token.
           self.push.token = token;
@@ -253,15 +295,13 @@ class iCloud extends EventEmitter {
 
           callback(null, self);
           self.emit("sessionUpdate");
-
         });
-
       });
     });
     //callback(null, "Hey you!");
   }
   registerPushService(service, callback = function() {}) {
-    var self = this;
+    const self = this;
     self.Setup.registerPush(self, service, function(err, result) {
       if (err) {
         return callback(err);
@@ -272,17 +312,20 @@ class iCloud extends EventEmitter {
     });
   }
   initPush(callback = function() {}) {
-    var self = this;
+    const self = this;
     self.Setup.registerTopics(self, function(err, result) {
       if (err) return console.error(err);
 
-      self.push.registered = self.push.registered.concat(result.registeredTopics);
-
-
+      self.push.registered = self.push.registered.concat(
+        result.registeredTopics
+      );
     });
 
     for (let appName in self.apps) {
-      if (self.apps.hasOwnProperty(appName) && self.apps[appName].containerIdentifier) {
+      if (
+        self.apps.hasOwnProperty(appName) &&
+        self.apps[appName].containerIdentifier
+      ) {
         const customPushTopic = self.apps[appName];
         this.registerPushService(customPushTopic.containerIdentifier);
       }
@@ -294,18 +337,24 @@ class iCloud extends EventEmitter {
           error: "Push token is expired. Getting new one...",
           errorCode: 22
         });
-        return self.Setup.getPushToken(self.push.topics, self.push.ttl, self.account.dsInfo.dsid, cookiesToStr(self.auth.cookies), self.clientId, function(err, token, url, cookies) {
-          if (err) return callback(err);
-          // Got push token.
-          self.push.token = token;
-          self.push.courierUrl = url;
+        return self.Setup.getPushToken(
+          self.push.topics,
+          self.push.ttl,
+          self.account.dsInfo.dsid,
+          cookiesToStr(self.auth.cookies),
+          self.clientId,
+          function(err, token, url, cookies) {
+            if (err) return callback(err);
+            // Got push token.
+            self.push.token = token;
+            self.push.courierUrl = url;
 
-          //callback(null, self);
-          self.initPush(callback);
+            //callback(null, self);
+            self.initPush(callback);
 
-          self.emit("sessionUpdate");
-
-        });
+            self.emit("sessionUpdate");
+          }
+        );
       }
       // Push request is answered
       self.emit("push", result);
@@ -325,20 +374,23 @@ class iCloud extends EventEmitter {
       account: this.account,
       logins: this.logins,
       clientSettings: this.clientSettings
-    }
+    };
   }
   saveSession(file = this.sessionFile) {
     // If file argument is not given, try to use the source the session was read from (Only possible if given)
     if (file) {
-      fs.writeFile(file, JSON.stringify(this.exportSession(), null, 2), (err) => {
-        if (err) return this.emit("error", err);
-      });
-    }
-    else {
+      fs.writeFile(
+        file,
+        JSON.stringify(this.exportSession(), null, 2),
+        function(err) {
+          if (err) return this.emit("error", err);
+        }
+      );
+    } else {
       return this.emit("err", {
         error: "File path is invalid",
         errorCode: 12
-      })
+      });
     }
   }
   get Setup() {
@@ -347,7 +399,19 @@ class iCloud extends EventEmitter {
   get apps() {
     return this.Setup.getApps();
   }
-
 }
 
 module.exports = iCloud;
+
+// Small self made fillDefaults method to fill an object with default properties
+
+Object.prototype.fillDefaults = function(defaults) {
+  Object.keys(defaults).forEach(key => {
+    if (!(key in this)) {
+      this[key] = defaults[key];
+    } else if (typeof defaults[key] == "object" && defaults[key] != null) {
+      this[key] = this[key].fillDefaults(defaults[key]);
+    }
+  });
+  return this;
+};

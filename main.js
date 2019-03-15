@@ -16,7 +16,7 @@ Array.prototype.indexOfKey = indexOfKey;
 class iCloud extends EventEmitter {
   constructor(session = {}, username, password) {
     super();
-    let self = this;
+    var self = this;
     // LoggedIn is false because we can't be sure that the session is valid
     self.loggedIn = false;
     // If the session argument is a string, it will be interpreted as a file path and the file will be read
@@ -43,7 +43,7 @@ class iCloud extends EventEmitter {
       sessionInit(session);
     }
 
-    const currTopics = self.Setup.getPushTopics(self.apps);
+    var currTopics = self.Setup.getPushTopics(self.apps);
 
     function sessionInit(session) {
       // Session Validation. This adds default properties to the session that doesn't exists

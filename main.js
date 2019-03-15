@@ -1,17 +1,23 @@
-const EventEmitter = require("events");
-const fs = require("fs");
+var EventEmitter = require("events");
+var fs = require("fs");
 
-const {
-  getHostFromWebservice,
+var {
   cookiesToStr,
   parseCookieStr,
   fillCookies,
-  newId,
-  indexOfKey,
   fillMethods
 } = require("./resources/helper");
 
-Array.prototype.indexOfKey = indexOfKey;
+function fillDefaults(obj, defaults) {
+  Object.keys(defaults).forEach(key => {
+    if (!(key in obj)) {
+      obj[key] = defaults[key];
+    } else if (typeof defaults[key] == "object" && defaults[key] != null) {
+      obj[key] = fillDefaults(obj[key], defaults[key]);
+    }
+  });
+  return obj;
+}
 
 class iCloud extends EventEmitter {
   constructor(session = {}, username, password) {
@@ -19,6 +25,7 @@ class iCloud extends EventEmitter {
     var self = this;
     // LoggedIn is false because we can't be sure that the session is valid
     self.loggedIn = false;
+
     // If the session argument is a string, it will be interpreted as a file path and the file will be read
     if (typeof session === "string") {
       // Set instances's sessionFile key to use it later as path
@@ -47,7 +54,7 @@ class iCloud extends EventEmitter {
 
     function sessionInit(session) {
       // Session Validation. This adds default properties to the session that doesn't exists
-      session = session.fillDefaults({
+      session = fillDefaults(session, {
         username: username,
         password: password,
         auth: {
@@ -108,11 +115,11 @@ class iCloud extends EventEmitter {
       });
 
       // Session object is validated. Now, the (self) instance will be extended with session's properties using the fill defaults function.
-      self = self.fillDefaults(session);
+      self = fillDefaults(self, session);
 
       Object.keys(self.apps).forEach(function(appPropName) {
         if ("instanceName" in self.apps[appPropName]) {
-          const service = require("./" + self.apps[appPropName].modulePath);
+          var service = require("./" + self.apps[appPropName].modulePath);
           self[self.apps[appPropName].instanceName] = fillMethods(
             {},
             service,
@@ -123,9 +130,9 @@ class iCloud extends EventEmitter {
 
       // Now, validate the session with checking for important aspects that show that the session can be used to get data (e.g. there need to be a token, some cookies and account info)
       self.loggedIn = (function() {
-        const accountIsNotEmpty =
+        var accountIsNotEmpty =
           JSON.stringify(self.account) !== JSON.stringify({});
-        const usernameMatches = username ? self.username === username : true;
+        var usernameMatches = username ? self.username === username : true;
 
         return (
           self.auth.cookies.length > 0 &&
@@ -136,9 +143,9 @@ class iCloud extends EventEmitter {
       })();
 
       self.cookiesValid = (function() {
-        const timestamp = new Date().getTime();
+        var timestamp = new Date().getTime();
         // Get list of cookies, represented to a boolean value wether the cookie is expired or no
-        const cookiesExpired = self.auth.cookies.map(cookie => {
+        var cookiesExpired = self.auth.cookies.map(cookie => {
           if (cookie["X-APPLE-WEBAUTH-HSA-LOGIN"] === "") {
             return false;
           }
@@ -189,7 +196,7 @@ class iCloud extends EventEmitter {
     }
   }
   set securityCode(code) {
-    const self = this;
+    var self = this;
 
     self.Setup.enterSecurityCode(self, code, function(result) {
       if (!result) {
@@ -208,14 +215,11 @@ class iCloud extends EventEmitter {
   }
   async sendSecurityCode(mode) {
     if (mode === "sms") {
-      const { response, body } = await this.Setup.__securityPhone(this, "sms");
+      var { response, body } = await this.Setup.__securityPhone(this, "sms");
     } else if (mode === "voice") {
-      const { response, body } = await this.Setup.__securityPhone(
-        this,
-        "voice"
-      );
+      var { response, body } = await this.Setup.__securityPhone(this, "voice");
     } else {
-      const { response, body } = await this.Setup.__securityCode(
+      var { response, body } = await this.Setup.__securityCode(
         this,
         null,
         "PUT"
@@ -231,7 +235,7 @@ class iCloud extends EventEmitter {
   }
   // Login method
   login(account, password, callback) {
-    const self = this;
+    var self = this;
     self.Setup.getAuthToken(account, password, self, function(
       err,
       authentification
@@ -263,10 +267,10 @@ class iCloud extends EventEmitter {
         self.account = result;
 
         // Parse cookies to objects
-        const cookies = parseCookieStr(response.headers["set-cookie"]);
+        var cookies = parseCookieStr(response.headers["set-cookie"]);
         self.auth.cookies = fillCookies(self.auth.cookies, cookies);
         // Parse cookie objects to a cookie string array and join it to a single string
-        const cookiesStr = cookiesToStr(self.auth.cookies);
+        var cookiesStr = cookiesToStr(self.auth.cookies);
 
         // Fire progress event
         self.emit("progress", {
@@ -301,7 +305,7 @@ class iCloud extends EventEmitter {
     //callback(null, "Hey you!");
   }
   registerPushService(service, callback = function() {}) {
-    const self = this;
+    var self = this;
     self.Setup.registerPush(self, service, function(err, result) {
       if (err) {
         return callback(err);
@@ -312,7 +316,7 @@ class iCloud extends EventEmitter {
     });
   }
   initPush(callback = function() {}) {
-    const self = this;
+    var self = this;
     self.Setup.registerTopics(self, function(err, result) {
       if (err) return console.error(err);
 
@@ -326,7 +330,7 @@ class iCloud extends EventEmitter {
         self.apps.hasOwnProperty(appName) &&
         self.apps[appName].containerIdentifier
       ) {
-        const customPushTopic = self.apps[appName];
+        var customPushTopic = self.apps[appName];
         this.registerPushService(customPushTopic.containerIdentifier);
       }
     }
@@ -402,16 +406,3 @@ class iCloud extends EventEmitter {
 }
 
 module.exports = iCloud;
-
-// Small self made fillDefaults method to fill an object with default properties
-
-Object.prototype.fillDefaults = function(defaults) {
-  Object.keys(defaults).forEach(key => {
-    if (!(key in this)) {
-      this[key] = defaults[key];
-    } else if (typeof defaults[key] == "object" && defaults[key] != null) {
-      this[key] = this[key].fillDefaults(defaults[key]);
-    }
-  });
-  return this;
-};

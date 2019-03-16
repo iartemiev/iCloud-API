@@ -5,7 +5,8 @@ var {
   cookiesToStr,
   parseCookieStr,
   fillCookies,
-  fillMethods
+  fillMethods,
+  indexOfKey
 } = require("./resources/helper");
 
 Array.prototype.indexOfKey = indexOfKey;

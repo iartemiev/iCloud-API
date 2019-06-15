@@ -158,44 +158,6 @@ class iCloud extends EventEmitter {
         // Return wether there is no expired cookie (true)
         return cookiesExpired.indexOf(true) === -1;
       })();
-
-      // If the session is valid, the client is ready! Emit the 'ready' event of the (self) instance
-      if (self.loggedIn && self.cookiesValid) {
-        self.logins.push(new Date().getTime());
-        self.emit("ready");
-      }
-      // If not, the session is invalid: An error event occurs and username and password arguments will be used for logging in and creating a new session
-      else {
-        self.emit("err", {
-          error: "Session is expired or invalid",
-          errorCode: 6
-        });
-        // 'progress' event of login is fired because it's an automatic aspect of the algorithm that it tries to login if the session was invalid
-        self.emit("progress", {
-          action: "start",
-          parentAction: "login",
-          progress: 0,
-          message: "Trying to reset session and login"
-        });
-
-        // Login with username and password
-        self.login(self.username, self.password, function(err) {
-          if (err) {
-            // If an error ocurs, fire an 'error' event
-            return self.emit("err", {
-              error: "Account is broken or password and username are invalid",
-              errorCode: 7
-            });
-          }
-          self.username = username;
-          self.password = password;
-
-          self.auth.created = new Date().getTime();
-          self.logins.push(self.auth.created);
-          // Client is ready
-          self.emit("ready");
-        });
-      }
     }
   }
   set securityCode(code) {
@@ -235,6 +197,46 @@ class iCloud extends EventEmitter {
       !this.auth.xAppleTwosvTrustToken &&
       !this.securityCode
     );
+  }
+  init() {
+    const self = this;
+    // If the session is valid, the client is ready! Emit the 'ready' event of the (self) instance
+    if (self.loggedIn && self.cookiesValid) {
+      self.logins.push(new Date().getTime());
+      self.emit("ready");
+    }
+    // If not, the session is invalid: An error event occurs and username and password arguments will be used for logging in and creating a new session
+    else {
+      // self.emit("err", {
+      //   error: "Session is expired or invalid",
+      //   errorCode: 6
+      // });
+      // 'progress' event of login is fired because it's an automatic aspect of the algorithm that it tries to login if the session was invalid
+      self.emit("progress", {
+        action: "start",
+        parentAction: "login",
+        progress: 0,
+        message: "Trying to reset session and login"
+      });
+
+      // Login with username and password
+      self.login(self.username, self.password, function(err) {
+        if (err) {
+          // If an error ocurs, fire an 'error' event
+          return self.emit("err", {
+            error: "Account is broken or password and username are invalid",
+            errorCode: 7
+          });
+        }
+        // self.username = username;
+        // self.password = password;
+
+        self.auth.created = new Date().getTime();
+        self.logins.push(self.auth.created);
+        // Client is ready
+        self.emit("ready");
+      });
+    }
   }
   // Login method
   login(account, password, callback) {
